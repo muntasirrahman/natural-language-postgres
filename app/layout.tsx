@@ -4,24 +4,23 @@ import { GeistSans } from "geist/font/sans";
 import { ThemeProvider } from "next-themes";
 
 export const metadata = {
-  metadataBase: new URL("https://natural-language-postgres.vercel.app"),
-  title: "Natural Language Postgres",
-  description:
-    "Chat with a Postgres database using natural language powered by the AI SDK by Vercel.",
+	metadataBase: new URL("https://natural-language-postgres.vercel.app"),
+	title: "Data Potensi",
+	description: "Chat dengan Data Potensi Nasabah",
 };
 
 export default function RootLayout({
-  children,
+	children,
 }: {
-  children: React.ReactNode;
+	children: React.ReactNode;
 }) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${GeistMono.className} ${GeistSans.className}`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-        </ThemeProvider>
-      </body>
-    </html>
-  );
+	return (
+		<html lang="en" suppressHydrationWarning>
+			<body className={`${GeistMono.className} ${GeistSans.className}`}>
+				<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+					{children}
+				</ThemeProvider>
+			</body>
+		</html>
+	);
 }

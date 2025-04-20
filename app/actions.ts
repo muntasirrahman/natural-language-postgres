@@ -7,153 +7,129 @@ import { generateObject } from "ai";
 import { z } from "zod";
 
 export const generateQuery = async (input: string) => {
-  "use server";
-  try {
-    const result = await generateObject({
-      model: openai("gpt-4o"),
-      system: `You are a SQL (postgres) and data visualization expert. Your job is to help the user write a SQL query to retrieve the data they need. The table schema is as follows:
+	"use server";
+	try {
+		const result = await generateObject({
+			model: openai("gpt-4o"),
+			system: `
+      Kamu adalah database SQL  postgres dan ahli visualisasi data. Tugas kamu adalah menulis SQL query untuk membaca data yang saya butuhkan. Skema tabel potensi adalah sebagai berikut:
 
-      unicorns (
-      id SERIAL PRIMARY KEY,
-      company VARCHAR(255) NOT NULL UNIQUE,
-      valuation DECIMAL(10, 2) NOT NULL,
-      date_joined DATE,
-      country VARCHAR(255) NOT NULL,
-      city VARCHAR(255) NOT NULL,
-      industry VARCHAR(255) NOT NULL,
-      select_investors TEXT NOT NULL
+      potensi (
+      cifid SERIAL PRIMARY KEY,
+      nama_lengkap TEXT,
+      handphone TEXT,
+      pengeluaran INTEGER,
+      gaji INTEGER,
+      tunjangan INTEGER      
     );
 
-    Only retrieval queries are allowed.
+    Kamu hanya membuat SQL query untuk membaca.    
 
-    For things like industry, company names and other string fields, use the ILIKE operator and convert both the search term and the field to lowercase using LOWER() function. For example: LOWER(industry) ILIKE LOWER('%search_term%').
+    Untuk nama orang dan field dengan jenis string, gunakan operator ILIKE, dan ubah kata pencarian dan field data menjadi huruf kecil menggunakan fungsi LOWER(). Contohnya: LOWER (nama) ILIKE LOWER('%search_term%').
 
-    Note: select_investors is a comma-separated list of investors. Trim whitespace to ensure you're grouping properly. Note, some fields may be null or have only one value.
-    When answering questions about a specific field, ensure you are selecting the identifying column (ie. what is Vercel's valuation would select company and valuation').
+    Ketika menjawab pertanyaan berkaitan dengan field tertentu, pastikan kamu menggunakan field identitas.
 
-    The industries available are:
-    - healthcare & life sciences
-    - consumer & retail
-    - financial services
-    - enterprise tech
-    - insurance
-    - media & entertainment
-    - industrials
-    - health
-
-    If the user asks for a category that is not in the list, infer based on the list above.
-
-    Note: valuation is in billions of dollars so 10b would be 10.0.
-    Note: if the user asks for a rate, return it as a decimal. For example, 0.1 would be 10%.
-
-    If the user asks for 'over time' data, return by year.
-
-    When searching for UK or USA, write out United Kingdom or United States respectively.
-
-    EVERY QUERY SHOULD RETURN QUANTITATIVE DATA THAT CAN BE PLOTTED ON A CHART! There should always be at least two columns. If the user asks for a single column, return the column and the count of the column. If the user asks for a rate, return the rate as a decimal. For example, 0.1 would be 10%.
+    Setiap query harus menghasilkan data kuantitatif dalam bentuk angka yang dapat digunakan untuk membuat grafik diagram. Setiap query juga menghasilkan paling sedikit 2 field. Kalau pengguna menanyakan data untuk satu field, selalu kembalikan data field tersebut dan jumlah field kolom.
     `,
-      prompt: `Generate the query necessary to retrieve the data the user wants: ${input}`,
-      schema: z.object({
-        query: z.string(),
-      }),
-    });
-    return result.object.query;
-  } catch (e) {
-    console.error(e);
-    throw new Error("Failed to generate query");
-  }
+			prompt: `Buat SQL query yang dibutuhkan untuk menghasilkan data: ${input}`,
+			schema: z.object({
+				query: z.string(),
+			}),
+		});
+		return result.object.query;
+	} catch (e) {
+		console.error(e);
+		throw new Error("Gagal membuat query");
+	}
 };
 
 export const runGenerateSQLQuery = async (query: string) => {
-  "use server";
-  // Check if the query is a SELECT statement
-  if (
-    !query.trim().toLowerCase().startsWith("select") ||
-    query.trim().toLowerCase().includes("drop") ||
-    query.trim().toLowerCase().includes("delete") ||
-    query.trim().toLowerCase().includes("insert") ||
-    query.trim().toLowerCase().includes("update") ||
-    query.trim().toLowerCase().includes("alter") ||
-    query.trim().toLowerCase().includes("truncate") ||
-    query.trim().toLowerCase().includes("create") ||
-    query.trim().toLowerCase().includes("grant") ||
-    query.trim().toLowerCase().includes("revoke")
-  ) {
-    throw new Error("Only SELECT queries are allowed");
-  }
+	"use server";
+	// Check if the query is a SELECT statement
+	if (
+		!query.trim().toLowerCase().startsWith("select") ||
+		query.trim().toLowerCase().includes("drop") ||
+		query.trim().toLowerCase().includes("delete") ||
+		query.trim().toLowerCase().includes("insert") ||
+		query.trim().toLowerCase().includes("update") ||
+		query.trim().toLowerCase().includes("alter") ||
+		query.trim().toLowerCase().includes("truncate") ||
+		query.trim().toLowerCase().includes("create") ||
+		query.trim().toLowerCase().includes("grant") ||
+		query.trim().toLowerCase().includes("revoke")
+	) {
+		throw new Error("Only SELECT queries are allowed");
+	}
 
-  let data: any;
-  try {
-    data = await sql.query(query);
-  } catch (e: any) {
-    if (e.message.includes('relation "unicorns" does not exist')) {
-      console.log(
-        "Table does not exist, creating and seeding it with dummy data now...",
-      );
-      // throw error
-      throw Error("Table does not exist");
-    } else {
-      throw e;
-    }
-  }
+	let data: any;
+	try {
+		data = await sql.query(query);
+	} catch (e: any) {
+		if (e.message.includes("Data potensi tidak ada")) {
+			console.log("Table data potensi tidak ada...");
+			// throw error
+			throw Error("Table data potensi tidak ada");
+		} else {
+			throw e;
+		}
+	}
 
-  return data.rows as Result[];
+	return data.rows as Result[];
 };
 
 export const explainQuery = async (input: string, sqlQuery: string) => {
-  "use server";
-  try {
-    const result = await generateObject({
-      model: openai("gpt-4o"),
-      schema: z.object({
-        explanations: explanationsSchema,
-      }),
-      system: `You are a SQL (postgres) expert. Your job is to explain to the user write a SQL query you wrote to retrieve the data they asked for. The table schema is as follows:
-    unicorns (
-      id SERIAL PRIMARY KEY,
-      company VARCHAR(255) NOT NULL UNIQUE,
-      valuation DECIMAL(10, 2) NOT NULL,
-      date_joined DATE,
-      country VARCHAR(255) NOT NULL,
-      city VARCHAR(255) NOT NULL,
-      industry VARCHAR(255) NOT NULL,
-      select_investors TEXT NOT NULL
+	"use server";
+	try {
+		const result = await generateObject({
+			model: openai("gpt-4o"),
+			schema: z.object({
+				explanations: explanationsSchema,
+			}),
+			system: `Kamu adalah ahli database SQL (postgres). Tugas kamu adalah menjelaskan SQL query yang kamu buat untuk menghasilkan data yang diminta oleh pengguna. Skema tabel potensi adalah sebagai berikut:
+
+    potensi (
+      cifid SERIAL PRIMARY KEY,
+      nama_lengkap TEXT,
+      handphone TEXT,
+      pengeluaran INTEGER,
+      gaji INTEGER,
+      tunjangan INTEGER      
     );
 
-    When you explain you must take a section of the query, and then explain it. Each "section" should be unique. So in a query like: "SELECT * FROM unicorns limit 20", the sections could be "SELECT *", "FROM UNICORNS", "LIMIT 20".
-    If a section doesnt have any explanation, include it, but leave the explanation empty.
-
+    Saat kamu menjelaskan query, kamu harus menggunakan setiap bagian dari query dan memberi penjelasan. Setiap "bagian" harus unik.
+    Contohnya untuk query: "SELECT * FROM potensi limit 10", bagian-bagian dari query tersebut adalah: "SELECT *", "FROM potensi", "LIMIT 10". 
+    Kalau ada bagian yang tidak memiliki penjelasan, tetap ikut sertakan, tapi penjelasan kosong.
     `,
-      prompt: `Explain the SQL query you generated to retrieve the data the user wanted. Assume the user is not an expert in SQL. Break down the query into steps. Be concise.
-
+			prompt: `Jelaskan SQL query uang kamu buat utuk membaca data yang diminta oleh pengguna. Buat asumsi bahwa pengguna tidak ahli SQL. Buat penjelasan yang ringkas.
       User Query:
       ${input}
 
       Generated SQL Query:
       ${sqlQuery}`,
-    });
-    return result.object;
-  } catch (e) {
-    console.error(e);
-    throw new Error("Failed to generate query");
-  }
+		});
+		return result.object;
+	} catch (e) {
+		console.error(e);
+		throw new Error("Failed to generate query");
+	}
 };
 
 export const generateChartConfig = async (
-  results: Result[],
-  userQuery: string,
+	results: Result[],
+	userQuery: string
 ) => {
-  "use server";
-  const system = `You are a data visualization expert. `;
+	"use server";
+	const system = `Kamu adalah ahli visualiasi data. `;
 
-  try {
-    const { object: config } = await generateObject({
-      model: openai("gpt-4o"),
-      system,
-      prompt: `Given the following data from a SQL query result, generate the chart config that best visualises the data and answers the users query.
+	try {
+		const { object: config } = await generateObject({
+			model: openai("gpt-4o"),
+			system,
+			prompt: `Berdasarkan data dari SQL query, buat grafik diagram yang menjelaskan dan menjawab data yang diminta pengguna.
+
       For multiple groups use multi-lines.
 
-      Here is an example complete config:
+      Ini adalah contoh  konfigurasi lengkap:
       export const chartConfig = {
         type: "pie",
         xKey: "month",
@@ -171,19 +147,19 @@ export const generateChartConfig = async (
 
       Data:
       ${JSON.stringify(results, null, 2)}`,
-      schema: configSchema,
-    });
+			schema: configSchema,
+		});
 
-    const colors: Record<string, string> = {};
-    config.yKeys.forEach((key, index) => {
-      colors[key] = `hsl(var(--chart-${index + 1}))`;
-    });
+		const colors: Record<string, string> = {};
+		config.yKeys.forEach((key, index) => {
+			colors[key] = `hsl(var(--chart-${index + 1}))`;
+		});
 
-    const updatedConfig: Config = { ...config, colors };
-    return { config: updatedConfig };
-  } catch (e) {
-    // @ts-expect-errore
-    console.error(e.message);
-    throw new Error("Failed to generate chart suggestion");
-  }
+		const updatedConfig: Config = { ...config, colors };
+		return { config: updatedConfig };
+	} catch (e) {
+		// @ts-expect-errore
+		console.error(e.message);
+		throw new Error("Failed to generate chart suggestion");
+	}
 };
